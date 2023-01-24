@@ -1,0 +1,868 @@
+---
+title: "Thesis Appendix B"
+author: "JH Pretorius"
+date: "2022-12-19"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, setup, include=FALSE}
+
+knitr::opts_knit$set(root.dir = '/Users/janhendrik/Downloads')
+
+```
+
+# Purpose
+
+The purpose of this code is to clean, visualise, and model data which was transcribed from death notices from Paarl in South Africa between 1895 and 1930.
+
+# Setup
+
+Load in tools and packages used
+
+```{r}
+
+rm(list = ls()) # Clean environment:
+
+library(pacman)
+p_load(ggplot2,dplyr,hrbrthemes,viridis,writexl,tidyr,ggridges,
+       showtext,gfonts,ggrepel,stringr,tidytext,tm,htmlwidgets,
+       webshot,wesanderson,dotwhisker,ivreg,jtools,GGally,
+       broom.helpers,RColorBrewer,ivprobit,flextable,sf,scales,lubridate)
+
+```
+
+# Load Data
+
+# Cleaning starts
+
+  Clean the Age variable
+
+```{r}
+#Special thanks to Jonathan Jayes for sharing his cleaning scripts for this variable (Age). Adjusted to suit my own naming conventions and data
+
+data <- data %>% 
+    mutate(Age = trimws(Age),
+           # before we get rid of punctuation
+           Age = str_replace(string = Age, pattern = "1/2", replacement = ".5"),
+           Age = gsub('[[:punct:] ]+',' ',Age))
+
+POCQ <- POCQ %>% 
+    mutate(Age = tolower(Age))
+
+# Formatting errors in the data. Need to scour data set for words that appear in
+# in the column
+
+words_age <- data %>% 
+  select(Age) %>% 
+  unnest_tokens(word, Age) %>% 
+  mutate(word = gsub('[[:digit:]]+', '', word)) %>% 
+  count(word, sort = T)
+  
+# Remove and replace common words
+data <- data %>%
+  mutate(Age = str_replace_all(string = Age, pattern = "and", replacement = "")) %>%
+  mutate(Age = str_replace_all(string = Age, pattern = "en", replacement = "")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "about", replacement = "")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "abt", replacement = "")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "omtrent", replacement = "")) %>%     
+  mutate(Age = str_replace(string = Age, pattern = "omtrant", replacement = "")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "approx", replacement = "")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "an", replacement = "")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "jaar", replacement = "years")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "jaaren", replacement = "years")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "jare", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "jaren", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "jahren", replacement = "years")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "yr", replacement = "years")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "yeara", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "yeas", replacement = "years")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "yeaers", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "yeares", replacement = "years")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "yers", replacement = "years")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "yrs", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "yearsen", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "maand", replacement = "months")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "maanden", replacement = "months")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "maande", replacement = "months")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "montha", replacement = "months")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "dagen", replacement = "days")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "blank", replacement = "")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "unknown", replacement = "")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "half", replacement = ".5")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "old", replacement = "")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "few", replacement = "5")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "onbekend", replacement = "")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "tears", replacement = "years")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "eyars", replacement = "years")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "dae", replacement = "days")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "enige", replacement = "one")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "almost", replacement = "")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "estimated", replacement = "")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "omtren", replacement = "")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "probably", replacement = ""))
+
+# Up to here most of the column should be clean. Export data to excel and 
+# manually clean
+
+data <- data %>%
+  mutate(Age = str_replace(string = Age, pattern = "one", replacement = "1")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "two", replacement = "2")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "three", replacement = "3")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "four", replacement = "4")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "five", replacement = "5")) %>% 
+  mutate(Age = str_replace(string = Age, pattern = "six", replacement = "6")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "seven", replacement = "7")) %>%     
+  mutate(Age = str_replace(string = Age, pattern = "eight", replacement = "8")) %>%     
+  mutate(Age = str_replace(string = Age, pattern = "nine", replacement = "9")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "ten", replacement = "10")) 
+  mutate(Age = str_replace(string = Age, pattern = "twenty", replacement = "20")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "thirty", replacement = "30")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "forty", replacement = "40")) %>%     
+  mutate(Age = str_replace(string = Age, pattern = "fifty", replacement = "50")) %>%     
+  mutate(Age = str_replace(string = Age, pattern = "sixty", replacement = "60")) %>%  
+  mutate(Age = str_replace(string = Age, pattern = "seventy", replacement = "70")) %>%   
+  mutate(Age = str_replace(string = Age, pattern = "eighty", replacement = "80")) %>%
+  mutate(Age = str_replace(string = Age, pattern = "ninety", replacement = "90")) 
+
+# Test data - export data to excel and scan through
+  
+write_xlsx(data, "{DESTINATION+NAME}")
+
+# Import data with script above.
+
+# Create dummy variables and labels
+
+for(i in 1:length(data$Age_Years)){
+  if (data$Age_Years[i] < 5){
+    data$Cat[i] = "0-4 Years"
+  } else if (data$Age_Years[i] < 10){
+    data$Cat[i] = "5-9 Years"
+  } else if (data$Age_Years[i] < 15) {
+    data$Cat[i] = "10-14 Years"
+  } else if (age_calc$Age_Years[i] < 20) {
+    data$Cat[i] = "15-19 Years"
+  } else if (age_calc$Age_Years[i] < 25) {
+    data$Cat[i] = "20-24 Years"
+  } else if (age_calc$Age_Years[i] < 35) {
+    data$Cat[i] = "25-34 Years"
+  } else if (age_calc$Age_Years[i] < 50) {
+    datac$Cat[i] = "35-49 Years"
+  } else if (age_calc$Age_Years[i] < 70) {
+    data$Cat[i] = "50-69 Years"
+  } else {
+    data$Cat[i] = "70+ Years"
+  }
+}
+
+  #Create dummies for categories
+
+age_calc$`0-4_Years` = ifelse(age_calc$Cat == "0-4 Years", 1, 0)
+age_calc$`5-9_Years` = ifelse(age_calc$Cat == "5-9 Years", 1, 0)
+age_calc$`10-14_Years` = ifelse(age_calc$Cat == "10-14 Years", 1, 0)
+age_calc$`15-19_Years` = ifelse(age_calc$Cat == "15-19 Years", 1, 0)
+age_calc$`20-24_Years` = ifelse(age_calc$Cat == "20-24 Years", 1, 0)
+age_calc$`25-34_Years` = ifelse(age_calc$Cat == "25-34 Years", 1, 0)
+age_calc$`35-49_Years` = ifelse(age_calc$Cat == "35-49 Years", 1, 0)
+age_calc$`50-69_Years` = ifelse(age_calc$Cat == "50-69 Years", 1, 0)
+age_calc$`70+_Years` = ifelse(age_calc$Cat == "70+ Years", 1, 0)
+
+#At first I believed the categories to be suitable.
+#But I opted to reduce the number of age categories to the five contained in the document
+#I reduced the categories manually through excel by making use of the newly instantiated Cat column
+
+```
+
+# Create dummy variable for sex
+
+```{r}
+
+data$Male = ifelse(data$Sex == "Male", 1, 0)
+
+```
+
+# Create dummy for informant signature
+
+```{r}
+
+age_calc$informant_signature = ifelse(data$`Signed, Yes Or No?` == "Yes", 1, 0)
+
+```
+
+# Create dummy for doctor signature
+
+```{r}
+
+data$doctor_signature = ifelse(data$Doctor == "N/A", 0, 1)
+
+```
+
+# Determine whether an individual has a street name in 'Place of Residence'
+
+
+```{r}
+
+for(i in 1:length(data$`Usual Place of Residence`)){
+  cod$CoD[i] <- tolower(data$`Usual Place of Residence`[i])
+}
+
+for(i in 1:length(data$`Usual Place of Residence`)){
+  data$street_name[i] <- grepl("street|str|straat|st|road|laan|rd|lane",
+                       data$`Usual Place of Residence`[i])
+}
+
+```
+
+# Causes of Death
+
+```{r}
+#Note: CoD = Cause of Death column
+
+#Resp dummies
+  
+
+for(i in 1:length(data$CoD)){
+  data$CoD[i] <- tolower(data$CoD[i])
+}
+
+for(i in 1:length(data$CoD)){
+  data$resp[i] <- grepl("pneumonia|lungs|lung|bronchitis|consumption|pulmonary|broncho|cough|influenza|tuberculosis|pertussis|emphysema|emphyzema|long|phtithis|flu|croup|griep|diphteria|tubercular",
+                       data$CoD[i])
+}
+
+#Gastro
+
+for(i in 1:length(data$CoD)){
+  data$gastro[i] <- grepl("enteric|diarrhoea|gastritis|bowels|maagkoors|cholera|gastro|vomiting|gastroenteritis|typhoid|intestinal|maag|peritonitis|enterocolitis|appendicitis|stomach|enteritis|entiritis",
+                       data$CoD[i])
+}
+
+#Cardio
+
+for(i in 1:length(data$CoD)){
+  data$cardio[i] <- grepl("heart|cardiovascular|cardiac|carditis|myocarditis|dropsy|cardia",
+                         data$CoD[i])
+}
+
+#Birth
+
+for(i in 1:length(data$CoD)){
+  data$birth[i] <- grepl("premature|birth|geboorte|gebore|prematurity",
+                         data$CoD[i])
+}
+
+#Cancer
+
+for(i in 1:length(data$CoD)){
+  data$cancer[i] <- grepl("cancer|carcinoma|kanker|cancerous|sarcoma|growth|tumour",
+                         data$CoD[i])
+}
+
+#Convulsions
+
+for(i in 1:length(data$CoD)){
+  data$convulsions[i] <- grepl("convulsions",
+                        data$CoD[i])
+}
+
+#STI
+
+for(i in 1:length(data$CoD)){
+  data$sti[i] <- grepl("syphylis|hepatitis|gonorhoea",
+                        data$CoD[i])
+}
+
+# This is as clean as it gets through automation. The rest of the data was cleaned manually in Excel
+
+```
+
+# Occupation cleaning scripts
+
+```{r}
+
+  #Farming
+
+    #Occupation
+for(i in 1:length(data$Occupation)){
+  data$Farming[i] <- grepl("farm-worker|peasant|agriculturalist|shepherd|farm worker|herd|gardener|groom|wood cutter|stable boy|cowherd|cattleman|plaas",
+                       data$Occupation[i])
+}
+    #Occupation Father
+for(i in 1:length(data$Occupation_Father)){
+  data$Farming_Father[i] <- grepl("farm-worker|peasant|agriculturalist|shepherd|farm worker|herd|gardener|groom| wood cutter|stable boy|cowherd|cattleman|plaas",
+                           data$Occupation_Father[i])
+}
+
+    #Occupation Mother
+for(i in 1:length(data$Occupation_Mother)){
+  data$Farming_Mother[i] <- grepl("farm-worker|peasant|agriculturalist|shepherd|farm worker|herd|gardener|groom| wood cutter|stable boy|cowherd|cattleman|plaas",
+                           data$Occupation_Mother[i])
+}
+
+  #Production
+
+#Occupation
+for(i in 1:length(data$Occupation)){
+  data$Production[i] <- grepl("labourer|manufacturer|mason|painter|factory|carpenter|blacksmith|shoemaker|driver|wagon|arbeider|maker|boot|builder|building|painter",
+                           data$Occupation[i])
+}
+#Occupation Father
+for(i in 1:length(data$Occupation_Father)){
+  data$Production_Father[i] <- grepl("labourer|manufacturer|mason|painter|factory|carpenter|blacksmith|shoemaker|driver|wagon|arbeider|maker|boot|builder|building|painter",
+                                  data$Occupation_Father[i])
+}
+
+#Occupation Mother
+for(i in 1:length(data$Occupation_Mother)){
+  data$Production_Mother[i] <- grepl("labourer|manufacturer|mason|painter|factory|carpenter|blacksmith|shoemaker|driver|wagon|arbeider|maker|boot|builder|building|painter",
+                                  data$Occupation_Mother[i])
+}
+
+    #Professionals & Managers
+
+#Occupation
+for(i in 1:length(data$Occupation)){
+  data$Prof_and_Man[i] <- grepl("farmer|scholar|teacher|clerk|manager|ganger|overseer|engineer|nurse|minister|doctor|attorney|law|legal|bookkeeper|accountant|biddle",
+                              data$Occupation[i])
+}
+#Occupation Father
+for(i in 1:length(data$Occupation_Father)){
+  data$Prof_and_Man_Father[i] <- grepl("farmer|scholar|teacher|clerk|manager|ganger|overseer|engineer|nurse|minister|doctor|attorney|law|legal|bookkeeper|accountant|biddle",
+                                     data$Occupation_Father[i])
+}
+
+#Occupation Mother
+for(i in 1:length(data$Occupation_Mother)){
+  data$Prof_and_Man_Mother[i] <- grepl("farmer|scholar|teacher|clerk|manager|ganger|overseer|engineer|nurse|minister|doctor|attorney|law|legal|bookkeeper|accountant|biddle",
+                                     data$Occupation_Mother[i])
+}
+
+    #Sales & Service
+
+#Occupation
+for(i in 1:length(data$Occupation)){
+  data$Sales_and_Service[i] <- grepl("housewife|domestic servant|servant|washing work|cook|baker|housekeeper|washer woman|general dealer|maid|house|domestic|washer",
+                                data$Occupation[i])
+}
+#Occupation Father
+for(i in 1:length(data$Occupation_Father)){
+  data$Sales_and_Service_Father[i] <- grepl("housewife|domestic servant|servant|washing work|cook|baker|housekeeper|washer woman|general dealer|maid|house|domestic|washer",
+                                       data$Occupation_Father[i])
+}
+
+#Occupation Mother
+for(i in 1:length(data$Occupation_Mother)){
+  data$Sales_and_Service_Mother[i] <- grepl("housewife|domestic servant|servant|washing work|cook|baker|housekeeper|washer woman|general dealer|maid|house|domestic|washer",
+                                       data$Occupation_Mother[i])
+}
+
+    #Pensioners
+
+#Occupation
+for(i in 1:length(data$Occupation)){
+  data$Sales_and_Service[i] <- grepl("pensioner|pension|retired",
+                                data$Occupation[i])
+}
+#Occupation Father
+for(i in 1:length(data$Occupation_Father)){
+  data$Sales_and_Service_Father[i] <- grepl("pensioner|pension|retired",
+                                       data$Occupation_Father[i])
+}
+
+#Occupation Mother
+for(i in 1:length(data$Occupation_Mother)){
+  data$Sales_and_Service_Mother[i] <- grepl("pensioner|pension|retired",
+                                       data$Occupation_Mother[i])
+}
+
+
+```
+
+# Cleaning duration of last illness
+
+```{r}
+#Special thanks to Jonathan Jayes for sharing his cleaning scripts for this variable (duration). Adjusted to suit my own naming conventions and data
+
+data <- data %>% 
+    mutate(`Duration of last illness` = trimws(`Duration of last illness`),
+           `Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "1/2", replacement = ".5"),
+           `Duration of last illness` = gsub('[[:punct:] ]+',' ',`Duration of last illness`))
+
+data <- data %>% 
+    mutate(`Duration of last illness` = tolower(`Duration of last illness`))
+
+data_word <- data %>% 
+  select(`Duration of last illness`) %>% 
+  unnest_tokens(word, `Duration of last illness`) %>% 
+  mutate(word = gsub('[[:digit:]]+', '', word)) %>% 
+  count(word, sort = T)
+
+# removing and replacing mistakes in transcription
+data <- data %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "one", replacement = "1")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "sudden", replacement = "5 hours")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "blank", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "none", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "several", replacement = "5")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "dagen", replacement = "days")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "some", replacement = "5")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "abt", replacement = "")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "unknown", replacement = "")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "indefinite", replacement = "")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "few", replacement = "5")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "suddenly", replacement = "5 hours")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "maanden", replacement = "months")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "omtrent", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "approx", replacement = "")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "enige", replacement = "1")) %>%  
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "weken", replacement = "weeks"))  %>% 
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "weken", replacement = "weeks")) %>%  
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "dae", replacement = "days")) %>% 
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "maande", replacement = "months")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "fortnight", replacement = "2 weeks")) %>% 
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "maand", replacement = "months")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "instantaneous", replacement = "5 hours")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "dag", replacement = "day")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "nil	", replacement = "")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "half", replacement = ".5")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "immediately", replacement = "5 hours")) %>%   
+    mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "three", replacement = "3")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "two", replacement = "2")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "jaar", replacement = "years")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "night", replacement = "day")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "uur", replacement = "year")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "circa", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "een", replacement = "1")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "four", replacement = "4")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "acht", replacement = "8")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "atb", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "couple", replacement = "5")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "dage", replacement = "days")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "jare", replacement = "years")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "jare", replacement = "years")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "jaren", replacement = "years")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "monts", replacement = "months")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "twenty", replacement = "20")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "uncertain", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "moths", replacement = "months")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "probably", replacement = "")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "about", replacement = ""))%>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "montha", replacement = "months"))
+
+# digits
+data <- data %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "½", replacement = ".5")) %>%
+  mutate(`Duration of last illness` = str_replace(string = `Duration of last illness`, pattern = "¼", replacement = ".25"))
+
+# we mutate age to be a uniform format, creating age in days and in years
+data <- data %>% 
+    mutate(data_days = round(as.numeric(as.period(`Duration of last illness`), "days"), 0),
+           data_years = round(as.numeric(as.period(`Duration of last illness`), "years"), 2))
+# View(POCQ)
+
+# this changes all DOLI for babies who've had illness since birth to their age at death.
+data <- data %>% 
+  mutate(data_days = ifelse(str_detect(`Duration of last illness`, pattern = "birth"), age_days, data_days),
+         data_years = ifelse(str_detect(`Duration of last illness`, pattern = "birth"), age_years, data_years))
+
+```
+
+# Cleaning has been completed
+
+# Stage 2: Plotting of data
+
+# Scripts for Age plots
+
+```{r}
+
+#Line plots (figure 3)
+
+data = data %>% count(Race, Cat, Year)
+data <- subset(data, Race =! "Black") #the sample size for black individuals too small to make meaningful plot
+
+ggplot(data=data, aes(x=Year, y=n, group=Cat, color=Cat))+
+  geom_line(size=.7)+
+  #Theme specifications
+  theme_ipsum() +
+  scale_color_manual(values = wes_palette(5, name = "Darjeeling1", type = "discrete"), name = "Age Cohort")+
+  theme(legend.position = "bottom",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=-2,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 14,family = "Times New Roman",hjust=0.5),
+        plot.subtitle = element_text(colour="black", size = 9,family = "Times New Roman"),
+        plot.caption = element_text(colour="black", size = 7,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 12,family = "Times New Roman", hjust=0, face = "bold"))+
+  #add labels
+  labs(
+    y = "Number of Deaths",
+    x = "Year",
+    title = bquote("Number of Deaths From Coloured Population")
+  )
+
+
+#Proportion plots were done with the same script
+
+
+# Density plots (from figure 4)
+
+data$informant_signature <- as.character(data$informant_signature) #numeric to string
+data$street_name <- as.character(data$street_name)
+
+ggplot(data, aes(x = Age_Years, group = informant_signature, fill = infromant_signature)) +
+  geom_density(alpha=0.6, adjust = 2) +
+  theme_ridges() +
+  theme_ipsum() +
+  #facet_wrap(~Race)+
+  scale_fill_manual(values = wes_palette(3, name = "Darjeeling1", type = "discrete"), name = "", labels = c("Mark", "Signature"))+
+  theme(legend.position = "bottom",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        #panel.border = element_blank(),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=-2,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 16,family = "Times New Roman",hjust=0.5),
+        plot.subtitle = element_text(colour="black", size = 9,family = "Times New Roman"),
+        plot.caption = element_text(colour="black", size = 7,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 12,family = "Times New Roman", hjust=3, face = "bold"),
+        strip.text = element_text(colour="black", size = 12,family = "Times New Roman",hjust=0.5))+
+  labs(
+    y = "Density",
+    x = "Age at Time of Death (Years)",
+    title = bquote("Death Notice Signed or Marked")
+  )
+
+```
+
+ #Total number of death notices with doctor present
+
+```{r}
+
+ggplot(data_deaths, aes(x=Year, y=total, group=Race, color=Race))+
+  geom_line()+
+  theme_ipsum() +
+  scale_color_manual(values = wes_palette(3, name = "Darjeeling1", type = "discrete"), name = "Race Group")+
+  theme(legend.position = "bottom",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "#E7E6E2", color = "#E7E6E2"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 10,family = "Times New Roman", vjust=-2,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 10,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 8, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 8,family = "Times New Roman"),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 12,family = "Times New Roman",hjust=0.5),
+        plot.subtitle = element_text(colour="black", size = 9,family = "Times New Roman"),
+        plot.caption = element_text(colour="black", size = 7,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 9,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 10,family = "Times New Roman", hjust=3, face = "bold"))+
+  labs(
+    y = "Number of Death Notices with Doctor Present",
+    x = "Year",
+    title = bquote("Access to Health")
+  )+
+  geom_vline(
+    aes(xintercept = 1918), 
+    color = "black",
+    linetype = "longdash",
+    size = .3
+  )
+
+```
+
+#Access to Health + CoD
+
+```{r}
+
+#Get the data ready
+
+data_access = data %>% count(Race, doctor_signed, Year)
+
+data <- subset(data, Race == "White")
+
+ggplot(data, aes(x=Year, y=n, group=doctor_signed, color=doctor_signed))+
+  geom_line()+
+  theme_ipsum() +
+  scale_color_manual(values = wes_palette(3, name = "FantasticFox1", type = "discrete"), name = "Death Notice Signed by Doctor?", labels = c("No", "Yes"))+
+  theme(legend.position = "bottom",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "#E7E6E2", color = "#E7E6E2"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        #panel.border = element_blank(),
+        axis.title.x=element_text(colour="black", size = 10,family = "Times New Roman", vjust=-2,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 10,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 8, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 8,family = "Times New Roman"),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 12,family = "Times New Roman",hjust=0.5),
+        plot.subtitle = element_text(colour="black", size = 9,family = "Times New Roman"),
+        plot.caption = element_text(colour="black", size = 7,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 9,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 10,family = "Times New Roman", hjust=3, face = "bold"))+
+  labs(
+    y = "Number of Deaths",
+    x = "Year",
+    title = bquote("Access to Health: Whites that are Literate")
+  )
+
+
+```
+
+# Cause of Death
+
+```{r}
+
+#Create new data set to calculate proportions
+data_deaths = data %>% count(Year, cod, Race)
+
+data <- subset(data, Race != "Black") #sample size for blacks to small to make meaningful plot
+data <- subset(data, age == "0-9 Years")
+
+ggplot(data, aes(x=Year, y=n, group=cod, fill=cod)) + 
+  geom_bar(position="fill", stat="identity", alpha=1)+
+  theme_ipsum() +
+  facet_wrap(~Race)+
+  scale_fill_brewer(palette = "Spectral", name = "Cause of Death")+
+  theme(legend.position = "none",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=-2,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 14,family = "Times New Roman",hjust=0.5),
+        plot.subtitle = element_text(colour="black", size = 9,family = "Times New Roman"),
+        plot.caption = element_text(colour="black", size = 7,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 10,family = "Times New Roman", hjust=3, face = "bold"),
+        strip.text = element_text(colour="black", size = 10,family = "Times New Roman", vjust=1,hjust=0.5))+
+  labs(
+    y = "Proportion",
+    x = "Year",
+    title = bquote("Prevalent Causes of Death Over Time by Race")
+  )
+
+```
+
+#Duration of illness plots
+
+```{r}
+
+data %>%
+  ggplot(aes(y=dur_ill_days, x=cod, fill=doctor_signature)) + 
+  geom_boxplot(width=0.3, color="black", alpha=0.7) +
+  theme_ipsum()  +
+  ylim(0,50) +
+  #facet_wrap(~Year)+
+  scale_fill_manual(values = wes_palette(4, name = "Darjeeling2", type = "discrete"), name="Death Notice Signed by Doctor?", labels=c("No Signature", "Doctor's Signature"))+
+  theme(legend.position = "bottom",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=0,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 12,family = "Times New Roman",hjust=0.5),
+        plot.subtitle = element_text(colour="black", size = 10,family = "Times New Roman", hjust=0.5),
+        plot.caption = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 15,family = "Times New Roman"),
+        legend.title = element_blank(),
+        strip.text = element_text(colour="black", size = 10,family = "Times New Roman", vjust=1,hjust=0.5))+
+  labs(
+    y = "Duration of Last Illness (Days)",
+    x = "Cause of Death",
+    title = "Death Notice Signed by Doctor"
+  )
+
+```
+
+# Occupation plots
+
+```{r}
+
+#Prep data
+occu = data %>% count(Race, Occupation, street_name)
+
+data <- subset(data, Occupation != "Children")
+
+ggplot(data, aes(fill=Occupation, y=n, x=Race)) + 
+  geom_bar(position="fill", stat="identity", alpha=0.8)+
+  facet_wrap(~street_name)+
+  theme_ipsum()+
+  scale_fill_manual(values = wes_palette(5, name = "Darjeeling1", type = "discrete"), name="Occupational Group")+
+  theme(legend.position = "bottom",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=0,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 14,family = "Times New Roman",hjust=0.5, face="bold"),
+        plot.subtitle = element_text(colour="black", size = 10,family = "Times New Roman", hjust=0.5),
+        plot.caption = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 12,family = "Times New Roman", face = "bold"),
+        strip.text = element_text(colour="black", size = 10,family = "Times New Roman", vjust=1,hjust=0.5))+
+  labs(
+    y = "Proportion",
+    x = "Race",
+    title = "Street Name on Death Certificate"
+  )
+
+```
+
+# Stage 2, plotting, complete
+
+# Stage 3: model the data
+
+```{r}
+
+#Spec 1 - Health Access
+
+spec1_1 <- glm(Doctor_Signature ~ Coloured + Black + Male,
+               family = binomial(link='logit'),
+               data = data)
+
+spec1_2 <- glm(Doctor_Signature ~ Coloured + Black + Male +
+                 Street_Name + Informant_Signature,
+               family = binomial(link='logit'),
+               data = data)
+
+spec1_3 <- glm(Doctor_Signature ~ Coloured + Black + Male +
+                 Street_Name + + Informant_Signature +
+                 Farming + Production + Sales_and_Service +
+                  Pandemic,
+               family = binomial(link='logit'),
+               data = data)
+
+#View model in R
+export_summs(spec1_1,spec1_2,spec1_3, digits = 3)
+
+#Export model to formatted table for Word
+export_summs(spec1_1,spec1_2,spec1_3, digits = 3, to.file = "docx", file.name = "{NAME}")
+
+# Coefficient plot for first model
+
+dwplot(list(spec1_1, spec1_2, spec1_3),
+       vline = geom_vline(
+         xintercept = 0,
+         colour = "grey60",
+         linetype = 2
+       ), dodge_size = 0.6,
+       ci_method="wald",
+       errorbar_height = .2)+
+  theme_ipsum()+
+  scale_color_manual(values = wes_palette(3, name = "Darjeeling1", type = "discrete"), name="", labels=c("Specification 3","Specification 2","Specification 1"))+
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=0,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 14,family = "Times New Roman",hjust=0.5, face="bold"),
+        plot.subtitle = element_text(colour="black", size = 10,family = "Times New Roman", hjust=0.5),
+        plot.caption = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 12,family = "Times New Roman"),
+        strip.text = element_text(colour="black", size = 10,family = "Times New Roman", vjust=1,hjust=0.5))+
+  labs(
+    y = "",
+    x = "Coefficient Estimate",
+    title = "Coefficient Plot of First Research Question",
+    subtitle = "Dependent Variable: Doctor Signature"
+  )
+
+#Spec 2 - Duration of Illness
+
+spec2_1 <- lm(Duration_of_Illness ~ Doctor_Signature*(Resp + TB + Gastro + Cardio + Birth + STI + Cancer)
+                 + `0-9_Years` + `10-14_Years` + `15-19_Years` + `35-49_Years` + `50+_Years` +
+                 Street_Name + Informant_Signature,
+               data = data)
+
+spec2_2 <- lm(Duration_of_Illness*White ~ Doctor_Signature*(Resp + TB + Gastro + Cardio + Birth + STI + Cancer)
+                 + `0-9_Years` + `10-14_Years` + `15-19_Years` + `35-49_Years` + `50+_Years` +
+                Street_Name + Informant_Signature,
+               data = data)
+
+spec2_3 <- lm(Duration_of_Illness*Coloured ~ Doctor_Signature*(Resp + TB + Gastro + Cardio + Birth + STI + Cancer)
+                 + `0-9_Years` + `10-14_Years` + `15-19_Years` + `35-49_Years` + `50+_Years` +
+                Street_Name + Informant_Signature,
+               data = data)
+
+spec2_4 <- lm(Duration_of_Illness*Black ~ Doctor_Signature*(Resp + TB + Gastro + Cardio + Birth + STI + Cancer)
+                + `0-9_Years` + `10-14_Years` + `15-19_Years` + `35-49_Years` + `50+_Years` +
+                Street_Name + Informant_Signature,
+               data = data)
+
+export_summs(spec2_1,spec2_2, spec2_3, spec2_4,digits = 3)
+
+#Second model dw plot
+
+dwplot(list(spec2_1, spec2_2, spec2_3, spec2_4),
+       vline = geom_vline(
+         xintercept = 0,
+         colour = "grey60",
+         linetype = 2
+       ), dodge_size = 0.6,
+       ci_method="wald",
+       errorbar_height = .2)+
+  theme_ipsum()+
+  scale_color_manual(values = wes_palette(4, name = "Darjeeling1", type = "discrete"), name="", labels=c("Black","Coloured","White","All Races"))+
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "White", color = "White"),
+        panel.grid.major = element_line(color="#808080", size = 0.1),
+        panel.grid.minor = element_line(color="#808080", size = 0.1),
+        axis.title.x=element_text(colour="black", size = 12,family = "Times New Roman", vjust=0,hjust=0.5),
+        axis.title.y=element_text(colour="black", size = 12,family = "Times New Roman",vjust = 3,hjust=0.5),
+        axis.text.y=element_text(colour ="black", size = 10, family = "Times New Roman"),
+        axis.text.x=element_text(colour="black", size = 10,family = "Times New Roman"),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+        plot.title = element_text(colour="black", size = 14,family = "Times New Roman",hjust=0.5, face="bold"),
+        plot.subtitle = element_text(colour="black", size = 10,family = "Times New Roman", hjust=0.5),
+        plot.caption = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.text = element_text(colour="black", size = 10,family = "Times New Roman"),
+        legend.title = element_text(colour="black", size = 12,family = "Times New Roman"),
+        strip.text = element_text(colour="black", size = 10,family = "Times New Roman", vjust=1,hjust=0.5))+
+  labs(
+    y = "",
+    x = "Coefficient Estimate",
+    title = "Coefficient Plot of Second Research Question",
+    subtitle = "Dependent Variable: Duration of Last Illness*Race"
+  )
+
+```
+
+# END
